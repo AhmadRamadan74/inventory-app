@@ -1,53 +1,37 @@
 import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-  Alert,
+  View, Text, StyleSheet, ScrollView,
+  TouchableOpacity, ActivityIndicator, Alert, StatusBar
 } from "react-native";
 import { collection, getDocs } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 import { db, auth } from "../../firebaseConfig";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { useUserRole } from "../../hooks/useUserRole";
 
 const CATEGORIES = [
-  { id: "plumbing", label: "السباكة", icon: "🔧", color: "#3b82f6" },
-  { id: "electrical", label: "الكهرباء", icon: "⚡", color: "#f59e0b" },
-  { id: "smart", label: "الأنظمة الذكية", icon: "📡", color: "#10b981" },
+  { id: "plumbing", label: "السباكة", icon: "build" as const, color: "#2563EB", bg: "#EFF6FF" },
+  { id: "electrical", label: "الكهرباء", icon: "flash" as const, color: "#D97706", bg: "#FFFBEB" },
+  { id: "smart", label: "الأنظمة الذكية", icon: "wifi" as const, color: "#059669", bg: "#ECFDF5" },
 ];
 
 export default function Dashboard() {
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    totalOrders: 0,
-    lowStock: 0,
-  });
+  const { userName } = useUserRole();
+  const [stats, setStats] = useState({ totalProducts: 0, totalOrders: 0, lowStock: 0 });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchStats();
-  }, []);
+  useEffect(() => { fetchStats(); }, []);
 
   const fetchStats = async () => {
     try {
-      const productsSnap = await getDocs(collection(db, "products"));
-      const ordersSnap = await getDocs(collection(db, "orders"));
-
+      const [productsSnap, ordersSnap] = await Promise.all([
+        getDocs(collection(db, "products")),
+        getDocs(collection(db, "orders")),
+      ]);
       let lowStock = 0;
-      productsSnap.forEach((doc) => {
-        if (doc.data().quantity <= 5) lowStock++;
-      });
-
-      setStats({
-        totalProducts: productsSnap.size,
-        totalOrders: ordersSnap.size,
-        lowStock,
-      });
-    } catch (e) {
-      console.error(e);
+      productsSnap.forEach((doc) => { if (doc.data().quantity <= 5) lowStock++; });
+      setStats({ totalProducts: productsSnap.size, totalOrders: ordersSnap.size, lowStock });
     } finally {
       setLoading(false);
     }
@@ -56,46 +40,46 @@ export default function Dashboard() {
   const handleLogout = () => {
     Alert.alert("تسجيل الخروج", "هل تريد تسجيل الخروج؟", [
       { text: "إلغاء", style: "cancel" },
-      {
-        text: "خروج",
-        style: "destructive",
-        onPress: async () => {
-          await signOut(auth);
-          router.replace("/(auth)/login" as any);
-        },
-      },
+      { text: "خروج", style: "destructive", onPress: async () => {
+        await signOut(auth);
+        router.replace("/(auth)/login" as any);
+      }},
     ]);
   };
 
-  if (loading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-      </View>
-    );
-  }
+  if (loading) return (
+    <View style={styles.centered}>
+      <ActivityIndicator size="large" color="#2563EB" />
+    </View>
+  );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-          <Text style={styles.logoutText}>خروج</Text>
+          <Ionicons name="log-out-outline" size={18} color="#DC2626" />
         </TouchableOpacity>
-        <Text style={styles.title}>لوحة التحكم</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.greeting}>مرحباً، {userName || "المستخدم"}</Text>
+          <Text style={styles.date}>نظام إدارة المخزون</Text>
+        </View>
       </View>
 
-      {/* Stats Row */}
+      {/* Stats */}
       <View style={styles.statsRow}>
-        <View style={[styles.statCard, { borderColor: "#3b82f6" }]}>
+        <View style={[styles.statCard, { borderTopColor: "#2563EB" }]}>
           <Text style={styles.statNumber}>{stats.totalProducts}</Text>
           <Text style={styles.statLabel}>منتج</Text>
         </View>
-        <View style={[styles.statCard, { borderColor: "#f59e0b" }]}>
+        <View style={[styles.statCard, { borderTopColor: "#059669" }]}>
           <Text style={styles.statNumber}>{stats.totalOrders}</Text>
           <Text style={styles.statLabel}>طلب</Text>
         </View>
-        <View style={[styles.statCard, { borderColor: "#ef4444" }]}>
-          <Text style={styles.statNumber}>{stats.lowStock}</Text>
+        <View style={[styles.statCard, { borderTopColor: "#DC2626" }]}>
+          <Text style={[styles.statNumber, stats.lowStock > 0 && { color: "#DC2626" }]}>{stats.lowStock}</Text>
           <Text style={styles.statLabel}>مخزون منخفض</Text>
         </View>
       </View>
@@ -105,17 +89,16 @@ export default function Dashboard() {
       {CATEGORIES.map((cat) => (
         <TouchableOpacity
           key={cat.id}
-          style={[styles.categoryCard, { borderRightColor: cat.color }]}
-          onPress={() =>
-            router.push(`/(tabs)/products?category=${cat.id}` as any)
-          }
+          style={styles.categoryCard}
+          onPress={() => router.push(`/(tabs)/products?category=${cat.id}` as any)}
+          activeOpacity={0.7}
         >
-          <View style={styles.categoryLeft}>
-            <Text style={styles.categoryIcon}>{cat.icon}</Text>
-          </View>
           <View style={styles.categoryRight}>
             <Text style={styles.categoryLabel}>{cat.label}</Text>
             <Text style={styles.categorySubtext}>اضغط لعرض المنتجات</Text>
+          </View>
+          <View style={[styles.categoryIcon, { backgroundColor: cat.bg }]}>
+            <Ionicons name={cat.icon} size={24} color={cat.color} />
           </View>
         </TouchableOpacity>
       ))}
@@ -124,70 +107,39 @@ export default function Dashboard() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a" },
-  content: { padding: 20 },
-  centered: {
-    flex: 1,
-    backgroundColor: "#0f172a",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  title: { fontSize: 24, fontWeight: "bold", color: "#fff" },
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  content: { padding: 20, paddingBottom: 32 },
+  centered: { flex: 1, backgroundColor: "#F8FAFC", justifyContent: "center", alignItems: "center" },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
+  headerText: { alignItems: "flex-end" },
+  greeting: { fontSize: 20, fontWeight: "700", color: "#0F172A" },
+  date: { fontSize: 13, color: "#64748B", marginTop: 2 },
   logoutBtn: {
-    backgroundColor: "#ef444422",
-    borderWidth: 1,
-    borderColor: "#ef4444",
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 6,
+    width: 40, height: 40, borderRadius: 12,
+    backgroundColor: "#FEF2F2", justifyContent: "center",
+    alignItems: "center", borderWidth: 1, borderColor: "#FECACA",
   },
-  logoutText: { color: "#ef4444", fontWeight: "bold" },
-  statsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 30,
-  },
+  statsRow: { flexDirection: "row", gap: 10, marginBottom: 28 },
   statCard: {
-    flex: 1,
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    padding: 16,
-    marginHorizontal: 4,
-    alignItems: "center",
-    borderTopWidth: 3,
+    flex: 1, backgroundColor: "#FFFFFF", borderRadius: 14,
+    padding: 16, alignItems: "center", borderTopWidth: 3,
+    borderWidth: 1, borderColor: "#E2E8F0",
+    shadowColor: "#0F172A", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-  statNumber: { fontSize: 28, fontWeight: "bold", color: "#fff" },
-  statLabel: {
-    fontSize: 12,
-    color: "#94a3b8",
-    marginTop: 4,
-    textAlign: "center",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "right",
-    marginBottom: 12,
-  },
+  statNumber: { fontSize: 28, fontWeight: "800", color: "#0F172A" },
+  statLabel: { fontSize: 11, color: "#64748B", marginTop: 4, textAlign: "center", fontWeight: "500" },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: "#0F172A", textAlign: "right", marginBottom: 12 },
   categoryCard: {
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    borderRightWidth: 4,
+    backgroundColor: "#FFFFFF", borderRadius: 16, padding: 18,
+    marginBottom: 10, flexDirection: "row",
+    alignItems: "center", justifyContent: "space-between",
+    borderWidth: 1, borderColor: "#E2E8F0",
+    shadowColor: "#0F172A", shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 8, elevation: 2,
   },
-  categoryLeft: { marginLeft: 16 },
-  categoryIcon: { fontSize: 32 },
-  categoryRight: { flex: 1, alignItems: "flex-end" },
-  categoryLabel: { fontSize: 18, fontWeight: "bold", color: "#fff" },
-  categorySubtext: { fontSize: 13, color: "#64748b", marginTop: 4 },
+  categoryIcon: { width: 52, height: 52, borderRadius: 14, justifyContent: "center", alignItems: "center" },
+  categoryRight: { alignItems: "flex-end" },
+  categoryLabel: { fontSize: 16, fontWeight: "700", color: "#0F172A" },
+  categorySubtext: { fontSize: 12, color: "#94A3B8", marginTop: 3 },
 });

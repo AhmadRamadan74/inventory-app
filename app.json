@@ -23,8 +23,9 @@
       "package": "com.inventory.app"
     },
     "web": {
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "bundler": "metro",
+      "favicon": "./assets/images/icon.png",
+      "output": "static"
     },
     "plugins": [
       "expo-router",

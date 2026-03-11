@@ -1,19 +1,56 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
 import { auth, db } from "../../firebaseConfig";
-import { router } from "expo-router";
+
+type FieldProps = {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  secure?: boolean;
+  keyboard?: any;
+};
+
+const Field = ({
+  label,
+  value,
+  onChange,
+  placeholder,
+  secure = false,
+  keyboard = "default",
+}: FieldProps) => (
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>{label}</Text>
+    <View style={styles.inputWrapper}>
+      <TextInput
+        style={styles.input}
+        placeholder={placeholder}
+        placeholderTextColor="#CBD5E1"
+        value={value}
+        onChangeText={onChange}
+        secureTextEntry={secure}
+        keyboardType={keyboard}
+        autoCapitalize="none"
+        textAlign="right"
+      />
+    </View>
+  </View>
+);
 
 export default function RegisterScreen() {
   const [name, setName] = useState("");
@@ -42,14 +79,11 @@ export default function RegisterScreen() {
         email,
         password,
       );
-      const uid = userCredential.user.uid;
-
-      await setDoc(doc(db, "users", uid), {
+      await setDoc(doc(db, "users", userCredential.user.uid), {
         name,
         email,
         role: "engineer",
       });
-
       Alert.alert("تم", "تم إنشاء الحساب بنجاح", [
         {
           text: "حسناً",
@@ -57,11 +91,12 @@ export default function RegisterScreen() {
         },
       ]);
     } catch (error: any) {
-      if (error.code === "auth/email-already-in-use") {
-        Alert.alert("خطأ", "البريد الإلكتروني مستخدم مسبقاً");
-      } else {
-        Alert.alert("خطأ", "فشل إنشاء الحساب");
-      }
+      Alert.alert(
+        "خطأ",
+        error.code === "auth/email-already-in-use"
+          ? "البريد الإلكتروني مستخدم مسبقاً"
+          : "فشل إنشاء الحساب",
+      );
     } finally {
       setLoading(false);
     }
@@ -72,106 +107,126 @@ export default function RegisterScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>إنشاء حساب جديد</Text>
-        <Text style={styles.subtitle}>للمهندسين فقط</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="الاسم الكامل"
-          placeholderTextColor="#64748b"
-          value={name}
-          onChangeText={setName}
-          textAlign="right"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="البريد الإلكتروني"
-          placeholderTextColor="#64748b"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          textAlign="right"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="كلمة المرور"
-          placeholderTextColor="#64748b"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          textAlign="right"
-        />
-
-        <TextInput
-          style={styles.input}
-          placeholder="تأكيد كلمة المرور"
-          placeholderTextColor="#64748b"
-          value={confirm}
-          onChangeText={setConfirm}
-          secureTextEntry
-          textAlign="right"
-        />
-
-        <TouchableOpacity
-          style={[styles.button, loading && styles.buttonDisabled]}
-          onPress={handleRegister}
-          disabled={loading}
-        >
-          <Text style={styles.buttonText}>
-            {loading ? "جاري الإنشاء..." : "إنشاء حساب"}
-          </Text>
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <ScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+      >
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color="#2563EB" />
+          <Text style={styles.backText}>رجوع</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.loginLink}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.loginLinkText}>لديك حساب؟ تسجيل الدخول</Text>
-        </TouchableOpacity>
+        <View style={styles.header}>
+          <View style={styles.logoBox}>
+            <Ionicons name="person-add" size={30} color="#2563EB" />
+          </View>
+          <Text style={styles.title}>إنشاء حساب جديد</Text>
+          <Text style={styles.subtitle}>للمهندسين فقط</Text>
+        </View>
+
+        <View style={styles.card}>
+          <Field
+            label="الاسم الكامل"
+            value={name}
+            onChange={setName}
+            placeholder="أدخل اسمك الكامل"
+          />
+          <Field
+            label="البريد الإلكتروني"
+            value={email}
+            onChange={setEmail}
+            placeholder="example@company.com"
+            keyboard="email-address"
+          />
+          <Field
+            label="كلمة المرور"
+            value={password}
+            onChange={setPassword}
+            placeholder="••••••••"
+            secure
+          />
+          <Field
+            label="تأكيد كلمة المرور"
+            value={confirm}
+            onChange={setConfirm}
+            placeholder="••••••••"
+            secure
+          />
+
+          <TouchableOpacity
+            style={[styles.registerBtn, loading && { opacity: 0.6 }]}
+            onPress={handleRegister}
+            disabled={loading}
+          >
+            <Text style={styles.registerBtnText}>
+              {loading ? "جاري الإنشاء..." : "إنشاء حساب"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#0f172a" },
-  content: { padding: 24, justifyContent: "center", flexGrow: 1 },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 8,
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  content: { flexGrow: 1, padding: 24 },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 24,
   },
-  subtitle: {
-    fontSize: 14,
-    color: "#94a3b8",
-    textAlign: "center",
-    marginBottom: 40,
-  },
-  input: {
-    backgroundColor: "#1e293b",
-    borderRadius: 12,
-    padding: 16,
-    color: "#fff",
-    fontSize: 16,
-    marginBottom: 16,
+  backText: { color: "#2563EB", fontSize: 14, fontWeight: "600" },
+  header: { alignItems: "center", marginBottom: 28 },
+  logoBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: "#EFF6FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: "#BFDBFE",
   },
-  button: {
-    backgroundColor: "#3b82f6",
+  title: { fontSize: 22, fontWeight: "700", color: "#0F172A" },
+  subtitle: { fontSize: 13, color: "#64748B", marginTop: 4 },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  inputGroup: { marginBottom: 16 },
+  label: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#475569",
+    textAlign: "right",
+    marginBottom: 6,
+  },
+  inputWrapper: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    paddingHorizontal: 14,
+  },
+  input: { paddingVertical: 14, fontSize: 15, color: "#0F172A" },
+  registerBtn: {
+    backgroundColor: "#2563EB",
     borderRadius: 12,
     padding: 16,
     alignItems: "center",
     marginTop: 8,
   },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: "#fff", fontSize: 18, fontWeight: "bold" },
-  loginLink: { marginTop: 20, alignItems: "center" },
-  loginLinkText: { color: "#3b82f6", fontSize: 15 },
+  registerBtnText: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
 });
